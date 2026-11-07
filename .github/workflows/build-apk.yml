@@ -20,22 +20,32 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Accept Android SDK Licenses
+        run: |
+          yes | sdkmanager --licenses || true
 
-      - name: Extract Android project
+      - name: Install Android SDK Packages
+        run: |
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Extract Android Project
         run: |
           mkdir -p project
           unzip -o *.zip -d project
 
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+
       - name: Build APK
         run: |
           cd project
-          chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          gradle assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Free-Fire-Coach-APK
           path: project/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
