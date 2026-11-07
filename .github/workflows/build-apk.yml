@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Project
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Setup Java 17
@@ -25,16 +25,18 @@ jobs:
           java-version: '17'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v4
+        uses: android-actions/setup-android@v3
         with:
-          cmdline-tools-version: '12266719'
-          accept-android-sdk-licenses: 'true'
-          log-accepted-android-sdk-licenses: 'false'
-          packages: ''
+          accept-android-sdk-licenses: false
+
+      - name: Accept All Android Licenses
+        shell: bash
+        run: |
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | sort | tail -n 1)
+          yes | "$SDKMANAGER" --licenses || true
 
       - name: Install Android SDK Packages
         run: |
-          yes | sdkmanager --licenses
           sdkmanager \
             "platform-tools" \
             "platforms;android-36" \
@@ -44,14 +46,22 @@ jobs:
         run: |
           mkdir -p project
           ZIP_FILE=$(find . -maxdepth 1 -name '*.zip' | head -n 1)
-          if [ -n "$ZIP_FILE" ]; then
-            unzip -o "$ZIP_FILE" -d project
-          else
-            cp -r app build.gradle.kts settings.gradle.kts gradle.properties gradle/libs.versions.toml project/
-            cp -r gradle project/
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "Android project ZIP not found"
+            exit 1
           fi
 
-      - name: Setup Gradle 9.3.1
+          unzip -o "$ZIP_FILE" -d project
+
+      - name: Fix KSP Compatibility
+        run: |
+          sed -i 's/googleDevtoolsKsp = "2.3.5"/googleDevtoolsKsp = "2.3.10"/' project/gradle/libs.versions.toml
+
+          echo "Updated KSP version:"
+          grep googleDevtoolsKsp project/gradle/libs.versions.toml
+
+      - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.3.1'
